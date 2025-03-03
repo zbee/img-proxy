@@ -37,62 +37,62 @@ const CLIENT_LONG_CACHE_TIME = 31536000 // 1 year
 
 // GitHub colors
 const background = "24273a";
-const text       = "cad3f5";
-const icon       = "c6a0f6";
-const accent     = "b7bdf8";
+const text = "cad3f5";
+const icon = "c6a0f6";
+const accent = "b7bdf8";
 
 // Dictionary of destinations with shortnames as keys
 const destinations = {
     // GH Stats headers
     "gh-overall-stats": `https://github-readme-stats-eight-weld-87.vercel.app/api?`
-                        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
-                        + `custom_title=GitHub%20Stats&count_private=true&`
-                        + `show_icons=true&line_height=24&hide_border=true&`
-                        + `bg_color=${background}&text_color=${text}&`
-                        + `icon_color=${icon}&title_color=${accent}`,
+        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
+        + `custom_title=GitHub%20Stats&count_private=true&`
+        + `show_icons=true&line_height=24&hide_border=true&`
+        + `bg_color=${background}&text_color=${text}&`
+        + `icon_color=${icon}&title_color=${accent}`,
     "gh-language-stats": `https://github-readme-stats-eight-weld-87.vercel.app/api/top-langs/?`
-                        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
-                        + `layout=compact&langs_count=8&hide_border=true&`
-                        + `card_width=275&hide=hack,procfile,cmake&`
-                        + `size_weight=0.6&count_weight=0.4&`
-                         + `bg_color=${background}&text_color=${text}&`
-                        + `icon_color=${icon}&title_color=${accent}`,
+        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
+        + `layout=compact&langs_count=8&hide_border=true&`
+        + `card_width=275&hide=hack,procfile,cmake&`
+        + `size_weight=0.6&count_weight=0.4&`
+        + `bg_color=${background}&text_color=${text}&`
+        + `icon_color=${icon}&title_color=${accent}`,
     // GH Badges
     "gh-badge-intellij": `https://img.shields.io/badge/ide-IntelliJ-informational?`
-                        + `style=for-the-badge&logo=intellij-idea&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=intellij-idea&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-heroku": `https://img.shields.io/badge/cloud-Heroku-informational?`
-                        + `style=for-the-badge&logo=heroku&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=heroku&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-aws": `https://img.shields.io/badge/cloud-AWS-informational?`
-                        + `style=for-the-badge&logo=amazonecs&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=amazonecs&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-csharp": `https://img.shields.io/badge/lang-c%23-informational?`
-                        + `style=for-the-badge&logo=.net&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=.net&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-python": `https://img.shields.io/badge/lang-python-informational?`
-                        + `style=for-the-badge&logo=python&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=python&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-cpp": `https://img.shields.io/badge/lang-c%2B%2B-informational?`
-                        + `style=for-the-badge&logo=cplusplus&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=cplusplus&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     "gh-badge-php": `https://img.shields.io/badge/lang-php-informational?`
-                        + `style=for-the-badge&logo=php&`
-                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                        + `logoColor=${icon}&color=${accent}&`
-                        + `labelColor=${background}`,
+        + `style=for-the-badge&logo=php&`
+        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+        + `logoColor=${icon}&color=${accent}&`
+        + `labelColor=${background}`,
     // Wrath images (permanently cached - url shouldn't ever be visited, but an empty string would look invalid)
     "wrath-output": "https://files.catbox.moe/50egub.gif",
     "wrath-anon-log": "https://files.catbox.moe/q3ofpk.gif",
@@ -108,6 +108,97 @@ function getDestination(path) {
     return destinations[getDestinationKey(path)] || null;
 }
 
+// Function to encode an ArrayBuffer to base64
+function encode(arrayBuffer) {
+    let base64 = '';
+    const encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    const bytes = new Uint8Array(arrayBuffer);
+    const byteLength = bytes.byteLength;
+    let byteRemainder = byteLength % 3;
+    let mainLength = byteLength - byteRemainder;
+
+    let a, b, c, d;
+    let chunk;
+
+    // Main loop deals with bytes in chunks of 3
+    for (let i = 0; i < mainLength; i = i + 3) {
+        // Combine the three bytes into a single integer
+        chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+
+        // Use bitmasks to extract 6-bit segments from the triplet
+        a = (chunk & 16515072) >> 18; // 16515072 = (2^6 - 1) << 18
+        b = (chunk & 258048) >> 12; // 258048   = (2^6 - 1) << 12
+        c = (chunk & 4032) >> 6; // 4032     = (2^6 - 1) << 6
+        d = chunk & 63;               // 63       = 2^6 - 1
+
+        // Convert the raw bitmasks to base64 characters
+        base64 += encodings[a] + encodings[b] + encodings[c] + encodings[d];
+    }
+
+    // Deal with the remaining bytes
+    if (byteRemainder == 1) {
+        chunk = bytes[mainLength];
+
+        a = (chunk & 252) >> 2; // 252 = (2^6 - 1) << 2
+        b = (chunk & 3) << 4; // 3   = 2^2 - 1
+
+        base64 += encodings[a] + encodings[b] + '==';
+    } else if (byteRemainder == 2) {
+        chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];
+
+        a = (chunk & 64512) >> 10; // 64512 = (2^6 - 1) << 10
+        b = (chunk & 1008) >> 4; // 1008  = (2^6 - 1) << 4
+        c = (chunk & 15) << 2; // 15    = 2^4 - 1
+
+        base64 += encodings[a] + encodings[b] + encodings[c] + '=';
+    }
+
+    return base64;
+}
+
+// Function to decode base64 to an ArrayBuffer
+function decode(base64) {
+    const encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    let byteLength = (base64.length / 4) * 3;
+    let paddingEnd = '';
+    if (base64[base64.length - 1] == '=') {
+        byteLength--;
+        paddingEnd = '=';
+    }
+    if (base64[base64.length - 2] == '=') {
+        byteLength--;
+    }
+
+    const arrayBuffer = new ArrayBuffer(byteLength);
+    const bytes = new Uint8Array(arrayBuffer);
+
+    let a, b, c, d;
+    let chunk;
+
+    let i = 0;
+    let j = 0;
+    for (; i < base64.length; i += 4) {
+        a = encodings.indexOf(base64[i]);
+        b = encodings.indexOf(base64[i + 1]);
+        c = encodings.indexOf(base64[i + 2]);
+        d = encodings.indexOf(base64[i + 3]);
+
+        chunk = (a << 18) | (b << 12) | (c << 6) | d;
+
+        bytes[j++] = (chunk & 16711680) >> 16;
+        if (c !== 64) {
+            bytes[j++] = (chunk & 65280) >> 8;
+        }
+        if (d !== 64) {
+            bytes[j++] = chunk & 255;
+        }
+    }
+
+    return arrayBuffer;
+}
+
 async function storeAsset(KV, bodyArray, contentType, url) {
     console.log('Starting storeAsset function');
 
@@ -118,11 +209,7 @@ async function storeAsset(KV, bodyArray, contentType, url) {
     console.log('Image data size:', imageData.byteLength, 'bytes');
 
     // Convert ArrayBuffer to base64
-    const base64 = btoa(
-        [...new Uint8Array(imageData)]
-            .map(b => String.fromCharCode(b))
-            .join('')
-    );
+    const base64 = encode(imageData);
     console.log('Base64 conversion complete, length:', base64.length);
 
     // Get content type of the original image
@@ -181,9 +268,12 @@ async function serveAsset(request, env, context) {
     // Serve the image from KV, if it exists
     if (value != null) {
         console.log('Serving image from KV:', url_key + "@" + currentKey);
-        return new Response(atob(value.split(',')[1]), {
-            headers: { "content-type": value.split(';')[0].split(':')[1] }
-        })
+        const contentType = value.split(';')[0].split(':')[1];
+        const base64Data = value.split(',')[1];
+        const arrayBuffer = decode(base64Data);
+        return new Response(arrayBuffer, {
+            headers: { "content-type": contentType }
+        });
     }
 
     // Try to get the permanently-cached image from KV
@@ -191,9 +281,12 @@ async function serveAsset(request, env, context) {
     // Serve the image from KV, if it exists
     if (value != null) {
         console.log('Serving image from KV:', url_key);
-        return new Response(atob(value.split(',')[1]), {
-            headers: { "content-type": value.split(';')[0].split(':')[1] }
-        })
+        const contentType = value.split(';')[0].split(':')[1];
+        const base64Data = value.split(',')[1];
+        const arrayBuffer = decode(base64Data);
+        return new Response(arrayBuffer, {
+            headers: { "content-type": contentType }
+        });
     }
 
     console.log('Image not found in KV, fetching from source:', url_key);
@@ -239,7 +332,7 @@ export default {
             // Iterate through all destinations
             for (const [key, url] of Object.entries(destinations)) {
                 console.log(`Fetching ${key} from ${url}`);
-                
+
                 try {
                     // Fetch the asset
                     const response = await fetch(url, {
@@ -248,19 +341,19 @@ export default {
                             cacheEverything: true,
                         }
                     });
-                    
+
                     if (!response.ok) {
                         console.error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
                         continue;
                     }
-                    
+
                     // Get the content type and array buffer
                     const contentType = response.headers.get("content-type");
                     const arrayBuffer = await response.arrayBuffer();
-                    
+
                     // Create a mock URL to pass to storeAsset
                     const mockUrl = new URL('https://example.com/' + key);
-                    
+
                     // Store the asset in KV
                     await storeAsset(env.IMG_PROXY_CACHE, arrayBuffer, contentType, mockUrl);
                     console.log(`Successfully refreshed asset: ${key}`);
