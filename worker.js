@@ -219,6 +219,47 @@ async function serveAsset(request, env, context) {
 }
 
 export default {
+    async scheduled(event, env, ctx) {
+        // Fetch and store all assets on a schedule
+        console.log('Running scheduled asset refresh');
+        try {
+            // Iterate through all destinations
+            for (const [key, url] of Object.entries(destinations)) {
+                console.log(`Fetching ${key} from ${url}`);
+                
+                try {
+                    // Fetch the asset
+                    const response = await fetch(url, {
+                        cf: {
+                            cacheTtlByStatus: { "200-299": WORKER_CACHE_TIME, "400-599": 0 },
+                            cacheEverything: true,
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        console.error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
+                        continue;
+                    }
+                    
+                    // Get the content type and array buffer
+                    const contentType = response.headers.get("content-type");
+                    const arrayBuffer = await response.arrayBuffer();
+                    
+                    // Create a mock URL to pass to storeAsset
+                    const mockUrl = new URL('https://example.com/' + key);
+                    
+                    // Store the asset in KV
+                    await storeAsset(env.IMG_PROXY_CACHE, arrayBuffer, contentType, mockUrl);
+                    console.log(`Successfully refreshed asset: ${key}`);
+                } catch (error) {
+                    console.error(`Error refreshing ${key}:`, error);
+                }
+            }
+            console.log('Scheduled asset refresh complete');
+        } catch (error) {
+            console.error('Error in scheduled task:', error);
+        }
+    },
     async fetch(request, event, context) {
         // Get the response
         let response = await serveAsset(request, event, context)
