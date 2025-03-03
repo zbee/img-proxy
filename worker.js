@@ -96,7 +96,7 @@ function getDestination(path) {
     return destinations[getDestinationKey(path)] || null;
 }
 
-async function storeAsset(env, bodyArray, contentType, url) {
+async function storeAsset(KV, bodyArray, contentType, url) {
     console.log('Starting storeAsset function');
 
     let imageData;
@@ -129,7 +129,7 @@ async function storeAsset(env, bodyArray, contentType, url) {
     const promises = keys.map(key => {
         const fullKey = getDestinationKey(url.pathname) + "@" + key;
         console.log('Storing with key:', fullKey);
-        return env.IMG_PROXY_CACHE.put(
+        return KV.put(
             fullKey,
             dataUrl,
             { expirationTtl: WORKER_CACHE_TIME * 2, }
@@ -197,7 +197,7 @@ async function serveAsset(request, env, context) {
     const finalResponse = new Response(arrayBuffer, { ...response, headers });
 
     // Manually cache the image body
-    storeAsset(env, arrayBuffer, contentType, url)
+    await storeAsset(env.IMG_PROXY_CACHE, arrayBuffer, contentType, url)
 
     return finalResponse;
 }
