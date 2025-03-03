@@ -100,7 +100,8 @@ const destinations = {
 
 // Function to get the destination key
 function getDestinationKey(path) {
-    return path.substring(path.lastIndexOf('/') + 1);
+    const name = path.substring(path.lastIndexOf('/') + 1);
+    return name.split('.')[0];
 }
 
 // Function to get the destination URL based on the path
