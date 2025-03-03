@@ -93,9 +93,9 @@ const destinations = {
                         + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
                         + `logoColor=${icon}&color=${accent}&`
                         + `labelColor=${background}`,
-    // Wrath images
-    "wrath-output": "",
-    "wrath-anon-log": "",
+    // Wrath images (permanently cached - url shouldn't ever be visited, but an empty string would look invalid)
+    "wrath-output": "https://files.catbox.moe/50egub.gif",
+    "wrath-anon-log": "https://files.catbox.moe/q3ofpk.gif",
 };
 
 // Function to get the destination key
