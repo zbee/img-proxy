@@ -168,6 +168,7 @@ async function serveAsset(request, env, context) {
 
     // Check that url_key is a valid destination
     if (!destinations[url_key]) {
+        console.error('Invalid destination:', url_key);
         return new Response("Not Found", { status: 404 })
     }
 
@@ -176,10 +177,13 @@ async function serveAsset(request, env, context) {
     let value = await env.IMG_PROXY_CACHE.get(url_key + "@" + currentKey)
     // Serve the image from KV, if it exists
     if (value != null) {
+        console.log('Serving image from KV:', url_key + "@" + currentKey);
         return new Response(atob(value.split(',')[1]), {
             headers: { "content-type": value.split(';')[0].split(':')[1] }
         })
     }
+
+    console.log('Image not found in KV, fetching from source:', url_key);
 
     // The desired URL
     let path = getDestination(url.pathname)
