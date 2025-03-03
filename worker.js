@@ -96,13 +96,23 @@ function getDestination(path) {
     return destinations[getDestinationKey(path)] || null;
 }
 
-async function storeAsset(env, response) {
+async function storeAsset(env, response, url) {
     console.log('Starting storeAsset function');
     console.log('Response status:', response.status);
 
-    // Get the image data as an ArrayBuffer
-    const imageData = await response.arrayBuffer();
-    console.log('Image data size:', imageData.byteLength, 'bytes');
+    try {
+        // Check if body is available
+        console.log('Response body used:', response.bodyUsed);
+
+        // Get the image data as an ArrayBuffer
+        const imageData = await response.arrayBuffer();
+        console.log('Image data size:', imageData.byteLength, 'bytes');
+
+        // Rest of your function...
+    } catch (error) {
+        console.error('Error processing response:', error);
+        return;
+    }
 
     // Convert ArrayBuffer to base64
     const base64 = btoa(
@@ -184,7 +194,7 @@ async function serveAsset(request, env, context) {
     )
 
     // Manually cache the image body
-    storeAsset(env, response.clone())
+    storeAsset(env, response.clone(), url)
 
     const headers = new Headers(response.headers)
     // Add caching header
