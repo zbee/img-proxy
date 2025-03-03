@@ -2,21 +2,30 @@
 // Licensed under GPLv3 - Refer to the LICENSE file for the complete text
 // Find the source code at https://github.com/zbee/img-proxy
 
+// Function to fetch the current UTC time from a public API
+async function fetchCurrentUTC() {
+    const response = await fetch('http://worldtimeapi.org/api/timezone/Etc/UTC');
+    const data = await response.json();
+    return new Date(data.utc_datetime);
+}
+
 // Key for the current day+hour
-const CURRENT_KEY = (() => {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const hour = String(now.getHours()).padStart(2, '0');
+const CURRENT_KEY = (async () => {
+    const now = await fetchCurrentUTC();
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    const hour = String(now.getUTCHours()).padStart(2, '0');
     return `${day}-${hour}`;
 })();
+
 // Keys for the next 3 hours
-const NEXT_KEYS = (() => {
+const NEXT_KEYS = (async () => {
     const keys = [];
+    const now = await fetchCurrentUTC();
     for (let i = 1; i < 4; i++) {
-        const now = new Date();
-        now.setHours(now.getHours() + i);
-        const day = String(now.getDate()).padStart(2, '0');
-        const hour = String(now.getHours()).padStart(2, '0');
+        const future = new Date(now);
+        future.setUTCHours(future.getUTCHours() + i);
+        const day = String(future.getUTCDate()).padStart(2, '0');
+        const hour = String(future.getUTCHours()).padStart(2, '0');
         keys.push(`${day}-${hour}`);
     }
     return keys;
