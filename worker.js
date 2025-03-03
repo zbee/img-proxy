@@ -98,12 +98,8 @@ function getDestination(path) {
 
 async function storeAsset(env, bodyArray, contentType, url) {
     console.log('Starting storeAsset function');
-    console.log('Response status:', response.status);
 
     let imageData;
-    
-    // Check if body is available
-    console.log('Response body used:', response.bodyUsed);
 
     // Get the image data as an ArrayBuffer
     imageData = bodyArray;
