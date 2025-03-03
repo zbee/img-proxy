@@ -96,24 +96,18 @@ function getDestination(path) {
     return destinations[getDestinationKey(path)] || null;
 }
 
-async function storeAsset(env, response, url) {
+async function storeAsset(env, bodyArray, contentType, url) {
     console.log('Starting storeAsset function');
     console.log('Response status:', response.status);
 
     let imageData;
-    try {
-        // Check if body is available
-        console.log('Response body used:', response.bodyUsed);
+    
+    // Check if body is available
+    console.log('Response body used:', response.bodyUsed);
 
-        // Get the image data as an ArrayBuffer
-        imageData = await response.arrayBuffer();
-        console.log('Image data size:', imageData.byteLength, 'bytes');
-
-        // Rest of your function...
-    } catch (error) {
-        console.error('Error processing response:', error);
-        return;
-    }
+    // Get the image data as an ArrayBuffer
+    imageData = bodyArray;
+    console.log('Image data size:', imageData.byteLength, 'bytes');
 
     // Convert ArrayBuffer to base64
     const base64 = btoa(
@@ -124,7 +118,7 @@ async function storeAsset(env, response, url) {
     console.log('Base64 conversion complete, length:', base64.length);
 
     // Get content type of the original image
-    const contentType = response.headers.get("content-type") || "image/png";
+    contentType = contentType || "image/png";
     console.log('Content type:', contentType);
 
     // Create data URL
@@ -133,7 +127,7 @@ async function storeAsset(env, response, url) {
     
     // Create array of current + next 3 hour keys
     const keys = [CURRENT_KEY, ...NEXT_KEYS];
-    console.log('Keys to store:', keys);
+    console.log('Keys to store:', JSON.stringify(keys));
 
     // Store the data URL in KV for each key
     const promises = keys.map(key => {
@@ -194,8 +188,9 @@ async function serveAsset(request, env, context) {
         }
     )
 
-    // Clone the response before using it
-    const responseClone = response.clone();
+    // Read the data for storage
+    const arrayBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get("content-type");
 
     const headers = new Headers(response.headers)
     // Add caching header
@@ -203,14 +198,12 @@ async function serveAsset(request, env, context) {
     // Vary header so cache respects content-negotiation/auto-format
     headers.set("vary", "Accept")
 
-    // Create response and add to the cache if successful
-    console.log('body used:', response.bodyUsed);
-    response = new Response(response.body, { ...response, headers })
+    const finalResponse = new Response(arrayBuffer, { ...response, headers });
 
     // Manually cache the image body
-    storeAsset(env, responseClone, url)
+    storeAsset(env, arrayBuffer, contentType, url)
 
-    return response
+    return finalResponse;
 }
 
 export default {
