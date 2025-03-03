@@ -96,7 +96,7 @@ function getDestination(path) {
     return destinations[getDestinationKey(path)] || null;
 }
 
-async function storeAsset(response) {
+async function storeAsset(env, response) {
     // Get the image data as an ArrayBuffer
     const imageData = await response.arrayBuffer();
 
@@ -118,7 +118,7 @@ async function storeAsset(response) {
 
     // Store the data URL in KV for each key
     const promises = keys.map(key => {
-        return context.env.IMG_PROXY_CACHE.put(
+        return env.IMG_PROXY_CACHE.put(
             getDestinationKey(url.pathname) + "@" + key,
             dataUrl,
             { expirationTtl: WORKER_CACHE_TIME * 2, }
@@ -129,12 +129,12 @@ async function storeAsset(response) {
     await Promise.all(promises);
 }
 
-async function serveAsset(request, event, context) {
+async function serveAsset(request, env, context) {
     const url = new URL(request.url)
     const url_key = getDestinationKey(url.pathname)
 
     // Try to get the image from KV
-    let value = await context.env.IMG_PROXY_CACHE.get(url_key + "@" + CURRENT_KEY)
+    let value = await env.IMG_PROXY_CACHE.get(url_key + "@" + CURRENT_KEY)
     // Serve the image from KV, if it exists
     if (value != null) {
         return new Response(atob(value.split(',')[1]), {
@@ -146,7 +146,7 @@ async function serveAsset(request, event, context) {
     let path = getDestination(url.pathname)
 
     // Request headers for content negotiation/auto-format, and caching
-    response = await fetch(
+    let response = await fetch(
         path,
         {
             cf: {
@@ -158,7 +158,7 @@ async function serveAsset(request, event, context) {
     )
 
     // Manually cache the image body
-    storeAsset(response.clone())
+    storeAsset(env, response.clone())
 
     const headers = new Headers(response.headers)
     // Add caching header
