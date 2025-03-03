@@ -97,8 +97,12 @@ function getDestination(path) {
 }
 
 async function storeAsset(env, response) {
+    console.log('Starting storeAsset function');
+    console.log('Response status:', response.status);
+
     // Get the image data as an ArrayBuffer
     const imageData = await response.arrayBuffer();
+    console.log('Image data size:', imageData.byteLength, 'bytes');
 
     // Convert ArrayBuffer to base64
     const base64 = btoa(
@@ -106,32 +110,54 @@ async function storeAsset(env, response) {
             .map(b => String.fromCharCode(b))
             .join('')
     );
+    console.log('Base64 conversion complete, length:', base64.length);
 
     // Get content type of the original image
-    const contentType = response.headers.get('content-type') || 'image/png';
+    const contentType = response.headers.get("content-type") || "image/png";
+    console.log('Content type:', contentType);
 
     // Create data URL
     const dataUrl = `data:${contentType};base64,${base64}`;
+    console.log('Data URL created, starts with:', dataUrl.substring(0, 50) + '...');
     
     // Create array of current + next 3 hour keys
     const keys = [CURRENT_KEY, ...NEXT_KEYS];
+    console.log('Keys to store:', keys);
 
     // Store the data URL in KV for each key
     const promises = keys.map(key => {
+        const fullKey = getDestinationKey(url.pathname) + "@" + key;
+        console.log('Storing with key:', fullKey);
         return env.IMG_PROXY_CACHE.put(
-            getDestinationKey(url.pathname) + "@" + key,
+            fullKey,
             dataUrl,
             { expirationTtl: WORKER_CACHE_TIME * 2, }
-        );
+        ).then(() => {
+            console.log(`Successfully stored key: ${fullKey}`);
+            return fullKey;
+        }).catch(error => {
+            console.error(`Failed to store key ${fullKey}:`, error);
+            throw error;
+        });
     });
 
     // Wait for all KV storage operations to complete
-    await Promise.all(promises);
+    try {
+        const results = await Promise.all(promises);
+        console.log('All keys stored successfully:', results);
+    } catch (error) {
+        console.error('Error storing keys:', error);
+    }
 }
 
 async function serveAsset(request, env, context) {
     const url = new URL(request.url)
     const url_key = getDestinationKey(url.pathname)
+
+    // Check that url_key is a valid destination
+    if (!destinations[url_key]) {
+        return new Response("Not Found", { status: 404 })
+    }
 
     // Try to get the image from KV
     let value = await env.IMG_PROXY_CACHE.get(url_key + "@" + CURRENT_KEY)

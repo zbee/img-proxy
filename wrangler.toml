@@ -6,3 +6,7 @@ minify = true
 kv_namespaces = [
   { binding = "IMG_PROXY_CACHE", id = "216d1c12b8964465a7c37ce050c54d54" }
 ]
+
+[observability]
+enabled = true
+head_sampling_rate = 1.00
