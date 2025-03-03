@@ -10,15 +10,15 @@ async function fetchCurrentUTC() {
 }
 
 // Key for the current day+hour
-const CURRENT_KEY = (async () => {
+async function getCurrentKey() {
     const now = await fetchCurrentUTC();
     const day = String(now.getUTCDate()).padStart(2, '0');
     const hour = String(now.getUTCHours()).padStart(2, '0');
     return `${day}-${hour}`;
-})();
+}
 
 // Keys for the next 3 hours
-const NEXT_KEYS = (async () => {
+async function getNextKeys() {
     const keys = [];
     const now = await fetchCurrentUTC();
     for (let i = 1; i < 4; i++) {
@@ -29,7 +29,7 @@ const NEXT_KEYS = (async () => {
         keys.push(`${day}-${hour}`);
     }
     return keys;
-})();
+}
 
 const WORKER_CACHE_TIME = 7200 // 2 hours
 const CLIENT_CACHE_TIME = 172800 // 2 days
@@ -45,54 +45,54 @@ const accent     = "b7bdf8";
 const destinations = {
     // GH Stats headers
     "gh-overall-stats": `https://github-readme-stats-eight-weld-87.vercel.app/api?`
-                      + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
-                      + `custom_title=GitHub%20Stats&count_private=true&`
-                      + `show_icons=true&line_height=24&hide_border=true&`
-                      + `bg_color=${background}&text_color=${text}&`
-                      + `icon_color=${icon}&title_color=${accent}`,
+                        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
+                        + `custom_title=GitHub%20Stats&count_private=true&`
+                        + `show_icons=true&line_height=24&hide_border=true&`
+                        + `bg_color=${background}&text_color=${text}&`
+                        + `icon_color=${icon}&title_color=${accent}`,
     "gh-language-stats": `https://github-readme-stats-eight-weld-87.vercel.app/api/top-langs/?`
-                       + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
-                       + `layout=compact&langs_count=8&hide_border=true&`
-                       + `card_width=275&hide=hack,procfile,cmake&`
-                       + `size_weight=0.6&count_weight=0.4&`
-                       + `bg_color=${background}&text_color=${text}&`
-                       + `icon_color=${icon}&title_color=${accent}`,
+                        + `username=zbee&cache_seconds=${WORKER_CACHE_TIME}&`
+                        + `layout=compact&langs_count=8&hide_border=true&`
+                        + `card_width=275&hide=hack,procfile,cmake&`
+                        + `size_weight=0.6&count_weight=0.4&`
+                         + `bg_color=${background}&text_color=${text}&`
+                        + `icon_color=${icon}&title_color=${accent}`,
     // GH Badges
     "gh-badge-intellij": `https://img.shields.io/badge/ide-IntelliJ-informational?`
-                       + `style=for-the-badge&logo=intellij-idea&`
-                       + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                       + `logoColor=${icon}&color=${accent}&`
-                       + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=intellij-idea&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-heroku": `https://img.shields.io/badge/cloud-Heroku-informational?`
-                     + `style=for-the-badge&logo=heroku&`
-                     + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                     + `logoColor=${icon}&color=${accent}&`
-                     + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=heroku&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-aws": `https://img.shields.io/badge/cloud-AWS-informational?`
-                  + `style=for-the-badge&logo=amazonecs&`
-                  + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                  + `logoColor=${icon}&color=${accent}&`
-                  + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=amazonecs&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-csharp": `https://img.shields.io/badge/lang-c%23-informational?`
-                     + `style=for-the-badge&logo=.net&`
-                     + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                     + `logoColor=${icon}&color=${accent}&`
-                     + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=.net&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-python": `https://img.shields.io/badge/lang-python-informational?`
-                     + `style=for-the-badge&logo=python&`
-                     + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                     + `logoColor=${icon}&color=${accent}&`
-                     + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=python&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-cpp": `https://img.shields.io/badge/lang-c%2B%2B-informational?`
-                  + `style=for-the-badge&logo=cplusplus&`
-                  + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                  + `logoColor=${icon}&color=${accent}&`
-                  + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=cplusplus&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
     "gh-badge-php": `https://img.shields.io/badge/lang-php-informational?`
-                  + `style=for-the-badge&logo=php&`
-                  + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
-                  + `logoColor=${icon}&color=${accent}&`
-                  + `labelColor=${background}`,
+                        + `style=for-the-badge&logo=php&`
+                        + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
+                        + `logoColor=${icon}&color=${accent}&`
+                        + `labelColor=${background}`,
 };
 
 // Function to get the destination key
@@ -129,9 +129,11 @@ async function storeAsset(KV, bodyArray, contentType, url) {
     // Create data URL
     const dataUrl = `data:${contentType};base64,${base64}`;
     console.log('Data URL created, starts with:', dataUrl.substring(0, 50) + '...');
-    
+
     // Create array of current + next 3 hour keys
-    const keys = [CURRENT_KEY, ...NEXT_KEYS];
+    const currentKey = await getCurrentKey();
+    const nextKeys = await getNextKeys();
+    const keys = [currentKey, ...nextKeys];
     console.log('Keys to store:', JSON.stringify(keys));
 
     // Store the data URL in KV for each key
@@ -170,7 +172,8 @@ async function serveAsset(request, env, context) {
     }
 
     // Try to get the image from KV
-    let value = await env.IMG_PROXY_CACHE.get(url_key + "@" + CURRENT_KEY)
+    const currentKey = await getCurrentKey();
+    let value = await env.IMG_PROXY_CACHE.get(url_key + "@" + currentKey)
     // Serve the image from KV, if it exists
     if (value != null) {
         return new Response(atob(value.split(',')[1]), {
