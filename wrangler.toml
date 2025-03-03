@@ -2,3 +2,7 @@ name = "img-proxy"
 main = "worker.js"
 compatibility_date = "2025-03-03"
 minify = true
+
+kv_namespaces = [
+  { binding = "IMG_PROXY_CACHE", id = "216d1c12b8964465a7c37ce050c54d54" }
+]

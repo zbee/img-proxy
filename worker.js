@@ -2,6 +2,26 @@
 // Licensed under GPLv3 - Refer to the LICENSE file for the complete text
 // Find the source code at https://github.com/zbee/img-proxy
 
+// Key for the current day+hour
+const CURRENT_KEY = (() => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    return `${day}-${hour}`;
+})();
+// Keys for the next 3 hours
+const NEXT_KEYS = (() => {
+    const keys = [];
+    for (let i = 1; i < 4; i++) {
+        const now = new Date();
+        now.setHours(now.getHours() + i);
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        keys.push(`${day}-${hour}`);
+    }
+    return keys;
+})();
+
 const WORKER_CACHE_TIME = 7200 // 2 hours
 const CLIENT_CACHE_TIME = 172800 // 2 days
 const CLIENT_LONG_CACHE_TIME = 31536000 // 1 year
@@ -66,24 +86,66 @@ const destinations = {
                   + `labelColor=${background}`,
 };
 
+// Function to get the destination key
+function getDestinationKey(path) {
+    return path.substring(path.lastIndexOf('/') + 1);
+}
+
 // Function to get the destination URL based on the path
 function getDestination(path) {
-    const key = path.substring(path.lastIndexOf('/') + 1);
-    return destinations[key] || null;
+    return destinations[getDestinationKey(path)] || null;
+}
+
+async function storeAsset(response) {
+    // Get the image data as an ArrayBuffer
+    const imageData = await response.arrayBuffer();
+
+    // Convert ArrayBuffer to base64
+    const base64 = btoa(
+        [...new Uint8Array(imageData)]
+            .map(b => String.fromCharCode(b))
+            .join('')
+    );
+
+    // Get content type of the original image
+    const contentType = response.headers.get('content-type') || 'image/png';
+
+    // Create data URL
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    
+    // Create array of current + next 3 hour keys
+    const keys = [CURRENT_KEY, ...NEXT_KEYS];
+
+    // Store the data URL in KV for each key
+    const promises = keys.map(key => {
+        return context.env.IMG_PROXY_CACHE.put(
+            getDestinationKey(url.pathname) + "@" + key,
+            dataUrl,
+            { expirationTtl: WORKER_CACHE_TIME * 2, }
+        );
+    });
+
+    // Wait for all KV storage operations to complete
+    await Promise.all(promises);
 }
 
 async function serveAsset(request, event, context) {
     const url = new URL(request.url)
+    const url_key = getDestinationKey(url.pathname)
 
-    // if this is already in the cache return that
-    const cache = caches.default
-    let response = await cache.match(request)
-    if (response) return response
+    // Try to get the image from KV
+    let value = await context.env.IMG_PROXY_CACHE.get(url_key + "@" + CURRENT_KEY)
+    // Serve the image from KV, if it exists
+    if (value != null) {
+        return new Response(atob(value.split(',')[1]), {
+            headers: { "content-type": value.split(';')[0].split(':')[1] }
+        })
+    }
 
-    // get the desired URL
+    // The desired URL
     let path = getDestination(url.pathname)
 
-    // include request headers for content negotiation/auto-format, and caching
+    // Request headers for content negotiation/auto-format, and caching
     response = await fetch(
         path,
         {
@@ -95,27 +157,31 @@ async function serveAsset(request, event, context) {
         }
     )
 
+    // Manually cache the image body
+    storeAsset(response.clone())
+
     const headers = new Headers(response.headers)
-    // add caching header
+    // Add caching header
     headers.set("cache-control", "public, max-age=" + CLIENT_CACHE_TIME)
-    // vary header so cache respects content-negotiation/auto-format
+    // Vary header so cache respects content-negotiation/auto-format
     headers.set("vary", "Accept")
 
-    // create response and add to the cache if successful
+    // Create response and add to the cache if successful
     response = new Response(response.body, { ...response, headers })
-    context.waitUntil(cache.put(request, response.clone()))
 
     return response
 }
 
 export default {
     async fetch(request, event, context) {
-        // get the response
+        // Get the response
         let response = await serveAsset(request, event, context)
-        // if not a successful status code return response text
+
+        // If not a successful status code return response text
         if (!response || response.status > 399) {
             response = new Response(response.statusText, { status: response.status })
         }
+
         return response
     },
 };
