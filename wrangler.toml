@@ -1,0 +1,4 @@
+name = "img-proxy"
+main = "worker.js"
+compatibility_date = "2025-03-03"
+minify = true
