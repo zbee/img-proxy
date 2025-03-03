@@ -105,7 +105,7 @@ async function storeAsset(env, response, url) {
         console.log('Response body used:', response.bodyUsed);
 
         // Get the image data as an ArrayBuffer
-        const imageData = await response.arrayBuffer();
+        const imageData = response.arrayBuffer();
         console.log('Image data size:', imageData.byteLength, 'bytes');
 
         // Rest of your function...
