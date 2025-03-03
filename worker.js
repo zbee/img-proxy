@@ -95,7 +95,7 @@ const destinations = {
         + `labelColor=${background}`,
     // Wrath images (permanently cached - url shouldn't ever be visited, but an empty string would look invalid)
     "wrath-output": "https://files.catbox.moe/50egub.gif",
-    "wrath-anon-log": "https://files.catbox.moe/q3ofpk.gif",
+    "wrath-anon-log": "https://files.catbox.moe/8x5t8y.gif",
 };
 
 // Function to get the destination key
