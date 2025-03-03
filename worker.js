@@ -93,6 +93,9 @@ const destinations = {
                         + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
                         + `logoColor=${icon}&color=${accent}&`
                         + `labelColor=${background}`,
+    // Wrath images
+    "wrath-output": "",
+    "wrath-anon-log": "",
 };
 
 // Function to get the destination key
@@ -178,6 +181,16 @@ async function serveAsset(request, env, context) {
     // Serve the image from KV, if it exists
     if (value != null) {
         console.log('Serving image from KV:', url_key + "@" + currentKey);
+        return new Response(atob(value.split(',')[1]), {
+            headers: { "content-type": value.split(';')[0].split(':')[1] }
+        })
+    }
+
+    // Try to get the permanently-cached image from KV
+    value = await env.IMG_PROXY_CACHE.get(url_key)
+    // Serve the image from KV, if it exists
+    if (value != null) {
+        console.log('Serving image from KV:', url_key);
         return new Response(atob(value.split(',')[1]), {
             headers: { "content-type": value.split(';')[0].split(':')[1] }
         })
