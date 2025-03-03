@@ -193,17 +193,21 @@ async function serveAsset(request, env, context) {
         }
     )
 
+    // Clone the response before using it
+    const responseClone = response.clone();
+
+    // Create response and add to the cache if successful
+    console.log('body used:', response.bodyUsed);
+    response = new Response(response.body, { ...response, headers })
+
     // Manually cache the image body
-    storeAsset(env, response.clone(), url)
+    storeAsset(env, responseClone, url)
 
     const headers = new Headers(response.headers)
     // Add caching header
     headers.set("cache-control", "public, max-age=" + CLIENT_CACHE_TIME)
     // Vary header so cache respects content-negotiation/auto-format
     headers.set("vary", "Accept")
-
-    // Create response and add to the cache if successful
-    response = new Response(response.body, { ...response, headers })
 
     return response
 }
