@@ -93,9 +93,9 @@ const destinations = {
         + `cacheSeconds=${CLIENT_LONG_CACHE_TIME}&`
         + `logoColor=${icon}&color=${accent}&`
         + `labelColor=${background}`,
-    // Wrath images (permanently cached - url shouldn't ever be visited, but an empty string would look invalid)
-    "wrath-output": "https://files.catbox.moe/50egub.gif",
-    "wrath-anon-log": "https://files.catbox.moe/8x5t8y.gif",
+    // Wrath images (permanently cached)
+    "wrath-output": "",    // https://files.catbox.moe/50egub.gif
+    "wrath-anon-log": "",  // https://files.catbox.moe/8x5t8y.gif
 };
 
 // Function to get the destination key
@@ -247,7 +247,7 @@ async function storeAsset(KV, bodyArray, contentType, url) {
     // Wait for all KV storage operations to complete
     try {
         const results = await Promise.all(promises);
-        console.log('All keys stored successfully:', results);
+        console.log('All keys stored successfully:', JSON.stringify(results));
     } catch (error) {
         console.error('Error storing keys:', error);
     }
@@ -258,7 +258,7 @@ async function serveAsset(request, env, context) {
     const url_key = getDestinationKey(url.pathname)
 
     // Check that url_key is a valid destination
-    if (!destinations[url_key]) {
+    if (!destinations[url_key] && destinations[url_key] !== "") {
         console.error('Invalid destination:', url_key);
         return new Response("Not Found", { status: 404 })
     }
@@ -325,57 +325,69 @@ async function serveAsset(request, env, context) {
     return finalResponse;
 }
 
+async function refreshAssets(env) {
+    // Fetch and store all assets on a schedule
+    console.log('Running scheduled asset refresh');
+    try {
+        // Iterate through all destinations
+        for (const [key, url] of Object.entries(destinations)) {
+            // Skip if URL is empty
+            if (!url) {
+                console.log(`Skipping ${key} due to empty URL (permanently cached?)`);
+                continue;
+            }
+
+            console.log(`Fetching ${key} from ${url}`);
+            try {
+                // Fetch the asset
+                const response = await fetch(url, {
+                    cf: {
+                        cacheTtlByStatus: { "200-299": WORKER_CACHE_TIME, "400-599": 0 },
+                        cacheEverything: true,
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
+                    continue;
+                }
+
+                // Get the content type and array buffer
+                const contentType = response.headers.get("content-type");
+                const arrayBuffer = await response.arrayBuffer();
+
+                // Create a mock URL to pass to storeAsset
+                const mockUrl = new URL('https://example.com/' + key);
+
+                // Store the asset in KV
+                await storeAsset(env.IMG_PROXY_CACHE, arrayBuffer, contentType, mockUrl);
+                console.log(`Successfully refreshed asset: ${key}`);
+            } catch (error) {
+                console.error(`Error refreshing ${key}:`, error);
+            }
+        }
+        console.log('Scheduled asset refresh complete');
+    } catch (error) {
+        console.error('Error in scheduled task:', error);
+    }
+}
+
 export default {
     async scheduled(event, env, ctx) {
-        // Fetch and store all assets on a schedule
-        console.log('Running scheduled asset refresh');
-        try {
-            // Iterate through all destinations
-            for (const [key, url] of Object.entries(destinations)) {
-                console.log(`Fetching ${key} from ${url}`);
-
-                try {
-                    // Fetch the asset
-                    const response = await fetch(url, {
-                        cf: {
-                            cacheTtlByStatus: { "200-299": WORKER_CACHE_TIME, "400-599": 0 },
-                            cacheEverything: true,
-                        }
-                    });
-
-                    if (!response.ok) {
-                        console.error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
-                        continue;
-                    }
-
-                    // Get the content type and array buffer
-                    const contentType = response.headers.get("content-type");
-                    const arrayBuffer = await response.arrayBuffer();
-
-                    // Create a mock URL to pass to storeAsset
-                    const mockUrl = new URL('https://example.com/' + key);
-
-                    // Store the asset in KV
-                    await storeAsset(env.IMG_PROXY_CACHE, arrayBuffer, contentType, mockUrl);
-                    console.log(`Successfully refreshed asset: ${key}`);
-                } catch (error) {
-                    console.error(`Error refreshing ${key}:`, error);
-                }
-            }
-            console.log('Scheduled asset refresh complete');
-        } catch (error) {
-            console.error('Error in scheduled task:', error);
-        }
+        // Refresh assets on a schedule
+        await refreshAssets(env);
     },
     async fetch(request, event, context) {
         // Get the response
-        let response = await serveAsset(request, event, context)
+        let response = await serveAsset(request, event, context);
 
         // If not a successful status code return response text
         if (!response || response.status > 399) {
-            response = new Response(response.statusText, { status: response.status })
+            response = new Response(response.statusText, {
+                status: response.status
+            });
         }
 
-        return response
+        return response;
     },
 };
