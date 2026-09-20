@@ -6,9 +6,7 @@ const CLIENT_MAX_AGE_SECS: u64 = 86_400;
 const MAX_BODY_BYTES: usize = 25 * 1024 * 1024;
 
 // KV metadata: everything about the image except the bytes. The KV value is
-// the raw body (SVG, GIF, PNG, WebP, WebM...); the metadata field carries this.
-// Freshness comes from last_success_ms vs frequency_hours, not a KV TTL —
-// entries never expire on their own.
+// the raw image data; the metadata field carries this.
 #[derive(Serialize, Deserialize)]
 struct ImageRecord {
     source: String,
@@ -47,11 +45,9 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     router.run(req, env).await
 }
 
-// --- image serving ---------------------------------------------------
+//region Asset Serving
 
-// Serves the dashboard's client script. It's registered ahead of the
-// catch-all "/:name" image route so "dashboard.js" is never mistaken for
-// an image name.
+// Serves the dashboard's client script.
 fn serve_dashboard_js(_req: Request, _ctx: RouteContext<()>) -> Result<Response> {
     let mut resp = Response::ok(include_str!("../assets/dashboard.js"))?;
     resp.headers_mut()
@@ -83,7 +79,9 @@ async fn serve_image(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     Ok(resp)
 }
 
-// Loads body + metadata in one read, refreshes if due, and returns whatever
+//endregion
+
+// Loads body + metadata in one read, refreshes if due, and return whatever
 // bytes should be served (fresh or stale) so the serve and cron paths share
 // the exact same logic.
 async fn load_and_refresh(
@@ -263,7 +261,11 @@ async fn dashboard_page(req: Request, ctx: RouteContext<()>) -> Result<Response>
     let message = match query_param(&url, "added") {
         Some(name) => {
             let host = url.host_str().unwrap_or("images.zbee.codes");
-            success_block_with_url(&name, &format!("https://{host}/{name}"))
+            let ext = match ctx.kv("IMAGES")?.get(&name).bytes_with_metadata::<ImageRecord>().await {
+                Ok((_, Some(rec))) => extension_for(&rec.content_type),
+                _ => "",
+            };
+            success_block_with_url(&name, &format!("https://{host}/{name}{ext}"))
         }
         None => String::new(),
     };
@@ -344,6 +346,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
             )
         }
     };
+    let ext = extension_for(&content_type);
 
     let rec = ImageRecord {
         source,
@@ -364,7 +367,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
     }
 
     let host = req.url()?.host_str().unwrap_or("images.zbee.codes").to_string();
-    let image_url = format!("https://{host}/{name}");
+    let image_url = format!("https://{host}/{name}{ext}");
     render_page_or_fragment(
         &req,
         &key,
@@ -379,6 +382,7 @@ async fn dashboard_delete(req: Request, ctx: RouteContext<()>) -> Result<Respons
     }
     let key = dashboard_key(&ctx)?;
     let name = ctx.param("name").unwrap().to_string();
+    let name = strip_known_extension(&name).to_string();
 
     ctx.kv("IMAGES")?.delete(&name).await?;
 
@@ -459,16 +463,19 @@ async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
     names.sort();
     let mut out = String::new();
     for name in names {
-        let is_video = matches!(
-            kv.get(&name).bytes_with_metadata::<ImageRecord>().await,
-            Ok((_, Some(r))) if r.content_type.starts_with("video/")
-        );
-        out.push_str(&gallery_tile(&name, is_video));
+        let (is_video, ext) = match kv.get(&name).bytes_with_metadata::<ImageRecord>().await {
+            Ok((_, Some(r))) => (
+                r.content_type.starts_with("video/"),
+                extension_for(&r.content_type),
+            ),
+            _ => (false, ""),
+        };
+        out.push_str(&gallery_tile(&name, is_video, ext));
     }
     Ok(out)
 }
 
-fn gallery_tile(name: &str, is_video: bool) -> String {
+fn gallery_tile(name: &str, is_video: bool, ext: &str) -> String {
     let media = if is_video {
         format!(
             r#"<video src="/{name}" alt="{name}" muted loop autoplay playsinline preload="metadata" class="w-full h-auto block"></video>"#,
@@ -481,16 +488,16 @@ fn gallery_tile(name: &str, is_video: bool) -> String {
         )
     };
     format!(
-        r#"<figure class="tile group relative mb-4 break-inside-avoid rounded-xl border border-mocha-surface0/80 hover:border-mocha-mauve/50 overflow-hidden bg-mocha-mantle shadow-tile hover:shadow-glow transition-all duration-200 cursor-pointer" data-name="{name}" style="view-transition-name: tile-{name}" onclick="copyImage(this.dataset.name)">
+        r#"<figure class="tile group relative mb-4 break-inside-avoid rounded-xl border border-mocha-surface0/80 hover:border-mocha-mauve/50 overflow-hidden bg-mocha-mantle shadow-tile hover:shadow-glow transition-all duration-200 cursor-pointer" data-name="{name}" data-ext="{ext}" style="view-transition-name: tile-{name}">
   {media}
   <figcaption class="absolute bottom-2 left-2 text-[10px] text-mocha-text bg-mocha-crust/80 backdrop-blur-sm px-2 py-0.5 rounded-md border border-mocha-surface0/60 opacity-0 group-hover:opacity-100 transition">{name}</figcaption>
   <button type="button" aria-label="Delete {name}" title="Delete {name}" data-name="{name}"
-    onclick="event.stopPropagation(); openConfirm(this.dataset.name)"
     class="absolute bottom-2 right-2 w-7 h-7 flex items-center justify-center rounded-md
-           bg-mocha-crust/80 hover:bg-mocha-red/20 border border-mocha-surface0/60 hover:border-mocha-red/40 text-mocha-subtext0 hover:text-mocha-red
+           bg-mocha-crust/80 hover:bg-mocha-red border border-mocha-surface0/60 hover:border-mocha-red text-mocha-subtext0 hover:text-mocha-crust
            text-lg leading-none opacity-0 group-hover:opacity-100 transition cursor-pointer">&times;</button>
 </figure>"#,
         name = name,
+        ext = ext,
         media = media
     )
 }
@@ -499,15 +506,14 @@ fn gallery_tile(name: &str, is_video: bool) -> String {
 
 // Every mutating request the dashboard makes (add/update, delete) is issued
 // via fetch() from the page's own script, which tags itself with this
-// header. On a plain browser navigation (no JS, bookmarked link, etc.) the
-// header is absent and we fall back to a full page render.
+// header. Fall back to a full-page render.
 fn is_partial_request(req: &Request) -> bool {
     matches!(req.headers().get("X-Requested-With"), Ok(Some(v)) if v == "fetch")
 }
 
 // The bit of the page that actually changes on every action: the status
 // message plus the gallery. Kept as its own element so the client can swap
-// it wholesale and the View Transition API has a single, stable node to
+//  it, and the View Transition API has a single, stable node to
 // diff old/new content against.
 fn dashboard_fragment(gallery: &str, message: &str) -> String {
     format!(
@@ -543,28 +549,28 @@ fn render_page_or_fragment(req: &Request, key: &str, gallery: &str, message: &st
 
 fn success_block_simple(message: &str) -> String {
     format!(
-             r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
-  <div class="bg-emerald-950/30 border border-emerald-900/50 p-3 rounded-md text-center">
-    <p class="text-sm text-emerald-400/90">{message}</p>
+        r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
+  <div class="bg-mocha-green/10 border border-mocha-green/30 p-4 rounded-xl text-center">
+    <p class="text-sm text-mocha-green">{message}</p>
   </div>
 </div>"#,
-             message = message
+        message = message
     )
 }
 
 fn success_block_with_url(name: &str, url: &str) -> String {
     format!(
         r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
-  <h2 class="text-sm font-semibold text-emerald-500 mb-2">Added "{name}"</h2>
+  <h2 class="text-sm font-semibold text-mocha-green mb-2">Added "{name}"</h2>
   <div class="group relative">
-    <div class="absolute -inset-0.5 bg-emerald-900/30 blur opacity-75 group-hover:opacity-100 transition rounded-lg"></div>
-    <div class="relative flex items-center bg-black p-1 rounded-lg border border-zinc-800">
+    <div class="absolute -inset-0.5 bg-mocha-green/20 blur opacity-75 group-hover:opacity-100 transition rounded-lg"></div>
+    <div class="relative flex items-center bg-mocha-crust p-1 rounded-lg border border-mocha-surface0">
       <input type="text" readonly value="{url}" id="result-url"
-        class="flex-grow bg-transparent p-2 font-mono text-xs text-zinc-300 outline-none select-all">
-      <button type="button" id="copy-btn" onclick="copyResult()"
-        class="rounded bg-emerald-950 hover:bg-emerald-900
-               border border-emerald-900/50 text-emerald-400 text-xs px-3 py-1.5 mr-1
-               opacity-0 group-hover:opacity-100 transition">copy</button>
+        class="flex-grow bg-transparent p-2 font-mono text-xs text-mocha-text outline-none">
+      <button type="button" id="copy-btn"
+        class="rounded-md bg-mocha-green/15 hover:bg-mocha-green/25
+               border border-mocha-green/30 text-mocha-green text-xs font-medium px-3 py-1.5 mr-1
+               opacity-0 group-hover:opacity-100 transition cursor-pointer">copy</button>
     </div>
   </div>
 </div>"#,
@@ -585,8 +591,7 @@ fn error_block(msg: &str) -> String {
     )
 }
 
-// --- helpers -------------------------------------------------------------
-
+//region Utilities
 fn authorized(req: &Request, ctx: &RouteContext<()>) -> Result<bool> {
     let url = req.url()?;
     let Some(key) = query_param(&url, "key") else {
@@ -643,3 +648,30 @@ fn html(body: String) -> Result<Response> {
         .set("Content-Type", "text/html; charset=utf-8")?;
     Ok(resp)
 }
+
+// Serves "/name.ext" as an alias for "/name". valid_name() forbids dots, so
+// a dot in the path can only be an extension suffix. Kept in sync with
+// extension_for(): every extension stripped here has a mapping there.
+fn strip_known_extension(name: &str) -> &str {
+    for ext in [".gif", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".webm", ".mp4", ".avif"] {
+        if let Some(stripped) = name.strip_suffix(ext) {
+            return stripped;
+        }
+    }
+    name
+}
+
+fn extension_for(content_type: &str) -> &'static str {
+    match content_type {
+        "image/gif" => ".gif",
+        "image/png" => ".png",
+        "image/jpeg" => ".jpg",
+        "image/webp" => ".webp",
+        "image/svg+xml" => ".svg",
+        "video/webm" => ".webm",
+        "video/mp4" => ".mp4",
+        "image/avif" => ".avif",
+        _ => "",
+    }
+}
+//endregion

@@ -10,8 +10,8 @@
 const KEY = document.body.dataset.key;
 
 // Copies an image's public URL to the clipboard and toasts success/failure.
-function copyImage(name) {
-    const url = window.location.origin + '/' + name;
+function copyImage(name, ext) {
+    const url = window.location.origin + '/' + name + (ext || '');
     navigator.clipboard.writeText(url).then(
         () => toast('copied ' + name),
         () => toast('copy failed')
@@ -35,7 +35,7 @@ function closeConfirm() {
 function copyResult() {
     const el = document.getElementById('result-url');
     if (!el) return;
-    navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    navigator.clipboard.writeText(el.value.trim()).then(() => {
         const btn = document.getElementById('copy-btn');
         if (!btn) return;
         const label = btn.textContent;
@@ -67,6 +67,21 @@ function toast(msg) {
 // Escape key closes the delete-confirmation modal from anywhere on the page.
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeConfirm();
+});
+
+// Tile copy, tile delete, and the success-box copy button are delegated here
+// instead of inline onclick attributes.
+document.addEventListener('click', (e) => {
+    if (e.target.closest('button[data-name]')) {
+        openConfirm(e.target.closest('button[data-name]').dataset.name);
+        return;
+    }
+    const tile = e.target.closest('.tile');
+    if (tile) {
+        copyImage(tile.dataset.name, tile.dataset.ext);
+        return;
+    }
+    if (e.target.closest('#copy-btn')) copyResult();
 });
 
 //region Seamless Transitions
