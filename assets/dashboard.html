@@ -10,7 +10,7 @@
           0% { opacity: 0; transform: translateY(-10px); }
           100% { opacity: 1; transform: translateY(0); }
       }
-      .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
       .tile img, .tile video { transition: transform 0.2s ease; }
       .tile:hover img, .tile:hover video { transform: scale(1.01); }
 
@@ -70,8 +70,10 @@
       Add / Update
     </button>
     <p class="text-[11px] text-zinc-600 mt-3 text-center">
-      KV limit 25 MiB per image &middot; "Never" converts in your browser:
-      GIF/PNG &rarr; WebP, video &rarr; WebM, SVG passes through
+      KV limit 25 MiB per image &middot;
+      "Never" converts and compresses in your browser:
+      <br/>
+      GIF/PNG &rarr; WebP, video &rarr; WebM, etc
     </p>
   </form>
 
