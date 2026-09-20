@@ -3,8 +3,6 @@ use worker::*;
 
 const DEFAULT_FREQUENCY_HOURS: u64 = 4;
 const CLIENT_MAX_AGE_SECS: u64 = 86_400;
-const MAX_BODY_BYTES: usize = 25 * 1024 * 1024;
-const FFMPEG_CDN_BASE: &str = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm";
 
 // KV metadata: everything about the image except the bytes. The KV value is
 // the raw image data; the metadata field carries this.
@@ -32,10 +30,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/", dashboard_add)
         .post_async("/delete/:name", dashboard_delete)
         .get_async("/refresh", refresh_all)
-        .get_async("/fetch", fetch_source)
-        .post_async("/upload", upload_image)
         .get("/dashboard.js", serve_dashboard_js)
-        .get_async("/ffmpeg/:file", ffmpeg_asset)
         .get_async("/:name", serve_image);
 
     let mut req = req.clone_mut()?;
@@ -59,40 +54,9 @@ fn serve_dashboard_js(_req: Request, _ctx: RouteContext<()>) -> Result<Response>
     Ok(resp)
 }
 
-// Serves ffmpeg.wasm's shell worker + its static imports from our origin so
-// the browser can construct a same-origin module worker. Two path segments,
-// so the "/:name" image catch-all never sees it. No auth: new Worker() can't
-// send our ?key= query anyway, and these are public static assets.
-async fn ffmpeg_asset(_req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let file = ctx.param("file").unwrap().to_string();
-    if !matches!(file.as_str(), "worker.js" | "const.js" | "errors.js") {
-        return Response::error("Not found", 404);
-    }
-    let url = format!("{FFMPEG_CDN_BASE}/{file}");
-
-    let headers = Headers::new();
-    headers.set("User-Agent", "img-proxy-worker")?;
-
-    let mut init = RequestInit::new();
-    init.with_method(Method::Get).with_headers(headers);
-
-    let request = Request::new_with_init(&url, &init)?;
-    let mut upstream = Fetch::Request(request).send().await?;
-    if upstream.status_code() != 200 {
-        return Response::error("Upstream error", 502);
-    }
-    let bytes = upstream.bytes().await?;
-
-    let mut resp = Response::from_bytes(bytes)?;
-    resp.headers_mut()
-        .set("Content-Type", "text/javascript; charset=utf-8")?;
-    resp.headers_mut()
-        .set("Cache-Control", "public, max-age=31536000, immutable")?;
-    Ok(resp)
-}
-
 async fn serve_image(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let name = ctx.param("name").unwrap().to_string();
+    let name = strip_known_extension(&name).to_string();
     let kv = ctx.kv("IMAGES")?;
     let host = req.url()?.host_str().unwrap_or("images.zbee.codes").to_string();
 
@@ -292,18 +256,27 @@ async fn dashboard_page(req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
     let key = dashboard_key(&ctx)?;
     let url = req.url()?;
+
+    let host = url.host_str().unwrap_or("images.zbee.codes").to_string();
+    // The just-added record is read back so its tile can be prepended even
+    // while kv.list() lags behind.
+    let mut prepend: Option<(String, ImageRecord)> = None;
     let message = match query_param(&url, "added") {
         Some(name) => {
-            let host = url.host_str().unwrap_or("images.zbee.codes");
-            let ext = match ctx.kv("IMAGES")?.get(&name).bytes_with_metadata::<ImageRecord>().await {
-                Ok((_, Some(rec))) => extension_for(&rec.content_type),
-                _ => "",
-            };
-            success_block_with_url(&name, &format!("https://{host}/{name}{ext}"))
+            match ctx.kv("IMAGES")?.get(&name).bytes_with_metadata::<ImageRecord>().await {
+                Ok((_, Some(rec))) => {
+                    let ext = extension_for(&rec.content_type);
+                    prepend = Some((name.clone(), rec));
+                    success_block_with_url(&name, &format!("https://{host}/{name}{ext}"))
+                }
+                _ => success_block_with_url(&name, &format!("https://{host}/{name}")),
+            }
         }
         None => String::new(),
     };
-    render_page_or_fragment(&req, &key, &gallery(&ctx).await?, &message)
+
+    let tiles = gallery(&ctx, prepend.as_ref().map(|(n, r)| (n.as_str(), r)), None).await?;
+    render_page_or_fragment(&req, &key, &tiles, &message)
 }
 
 async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
@@ -318,7 +291,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
             return render_page_or_fragment(
                 &req,
                 &key,
-                &gallery(&ctx).await?,
+                &gallery(&ctx, None, None).await?,
                 &error_block("Invalid form payload"),
             )
         }
@@ -335,7 +308,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         return render_page_or_fragment(
             &req,
             &key,
-            &gallery(&ctx).await?,
+            &gallery(&ctx, None, None).await?,
             &error_block("A name is required"),
         );
     };
@@ -343,7 +316,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         return render_page_or_fragment(
             &req,
             &key,
-            &gallery(&ctx).await?,
+            &gallery(&ctx, None, None).await?,
             &error_block("Name must be letters, digits, - or _ (and not 'refresh')"),
         );
     }
@@ -352,7 +325,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         return render_page_or_fragment(
             &req,
             &key,
-            &gallery(&ctx).await?,
+            &gallery(&ctx, None, None).await?,
             &error_block("A source URL is required"),
         );
     };
@@ -360,7 +333,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         return render_page_or_fragment(
             &req,
             &key,
-            &gallery(&ctx).await?,
+            &gallery(&ctx, None, None).await?,
             &error_block("Source must start with http:// or https://"),
         );
     }
@@ -375,7 +348,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
             return render_page_or_fragment(
                 &req,
                 &key,
-                &gallery(&ctx).await?,
+                &gallery(&ctx, None, None).await?,
                 &error_block(&format!("Could not fetch source: {e}")),
             )
         }
@@ -395,17 +368,18 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         return render_page_or_fragment(
             &req,
             &key,
-            &gallery(&ctx).await?,
+            &gallery(&ctx, None, None).await?,
             &error_block(&format!("Could not store image: {e} (KV caps at 25 MiB)")),
         );
     }
 
     let host = req.url()?.host_str().unwrap_or("images.zbee.codes").to_string();
     let image_url = format!("https://{host}/{name}{ext}");
+    let tiles = gallery(&ctx, Some((&name, &rec)), None).await?;
     render_page_or_fragment(
         &req,
         &key,
-        &gallery(&ctx).await?,
+        &tiles,
         &success_block_with_url(&name, &image_url),
     )
 }
@@ -420,69 +394,26 @@ async fn dashboard_delete(req: Request, ctx: RouteContext<()>) -> Result<Respons
 
     ctx.kv("IMAGES")?.delete(&name).await?;
 
+    let tiles = gallery(&ctx, None, Some(&name)).await?;
     render_page_or_fragment(
         &req,
         &key,
-        &gallery(&ctx).await?,
+        &tiles,
         &success_block_simple(&format!("Deleted \"{name}\"")),
     )
 }
 
-async fn upload_image(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    if !authorized(&req, &ctx)? {
-        return Response::error("Forbidden", 403);
-    }
-    let url = req.url()?;
+//region HTML Rendering
 
-    let Some(name) = query_param(&url, "name") else {
-        return Response::error("Missing ?name=", 400);
-    };
-    if !valid_name(&name) {
-        return Response::error("Invalid name", 400);
-    }
-    let Some(source) = query_param(&url, "source") else {
-        return Response::error("Missing ?source=", 400);
-    };
-    let content_type = query_param(&url, "content_type")
-        .unwrap_or_else(|| "image/webp".to_string());
-
-    let bytes = req.bytes().await?;
-    if bytes.len() > MAX_BODY_BYTES {
-        return Response::error("Over 25 MiB KV limit", 413);
-    }
-
-    let rec = ImageRecord {
-        source,
-        frequency_hours: 0,
-        last_success_ms: Date::now().as_millis(),
-        dead_since_ms: None,
-        content_type,
-    };
-    store_image(&ctx.kv("IMAGES")?, &name, &rec, &bytes).await?;
-
-    Response::ok(format!("stored {name}"))
-}
-
-//region HTML Rendering - Transitional
-
-async fn fetch_source(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    if !authorized(&req, &ctx)? {
-        return Response::error("Forbidden", 403);
-    }
-    let url = req.url()?;
-    let Some(source) = query_param(&url, "url") else {
-        return Response::error("Missing ?url=", 400);
-    };
-    if !source.starts_with("http://") && !source.starts_with("https://") {
-        return Response::error("url must be http(s)", 400);
-    }
-    let (bytes, content_type) = fetch_upstream(&source).await?;
-    let mut resp = Response::from_bytes(bytes)?;
-    resp.headers_mut().set("Content-Type", &content_type)?;
-    Ok(resp)
-}
-
-async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
+// Renders the gallery from the KV list, overlaying the just-written record
+// (prepend) and omitting the just-deleted name (skip). kv.list() is only
+// eventually consistent, while a direct get on a key is strongly consistent,
+// so the overlay is what makes add/delete appear instantly.
+async fn gallery(
+    ctx: &RouteContext<()>,
+    prepend: Option<(&str, &ImageRecord)>,
+    skip: Option<&str>,
+) -> Result<String> {
     let kv = ctx.kv("IMAGES")?;
     let mut names: Vec<String> = kv
         .list()
@@ -493,8 +424,24 @@ async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
         .map(|k| k.name)
         .collect();
     names.sort();
+
     let mut out = String::new();
+    if let Some((name, rec)) = prepend {
+        out.push_str(&gallery_tile(
+            name,
+            rec.content_type.starts_with("video/"),
+            extension_for(&rec.content_type),
+        ));
+    }
     for name in names {
+        if skip == Some(name.as_str()) {
+            continue;
+        }
+        if let Some((p, _)) = prepend {
+            if p == name.as_str() {
+                continue; // the list caught up; don't duplicate the prepended tile
+            }
+        }
         let (is_video, ext) = match kv.get(&name).bytes_with_metadata::<ImageRecord>().await {
             Ok((_, Some(r))) => (
                 r.content_type.starts_with("video/"),
@@ -543,8 +490,8 @@ fn is_partial_request(req: &Request) -> bool {
 
 // The bit of the page that actually changes on every action: the status
 // message plus the gallery. Kept as its own element so the client can swap
-//  it, and the View Transition API has a single, stable node to
-// diff old/new content against.
+// it, and the View Transition API has a single, stable node to diff old/new
+// content against.
 fn dashboard_fragment(gallery: &str, message: &str) -> String {
     format!(
         r#"<div id="dashboard-content">

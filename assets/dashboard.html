@@ -4,36 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>img-proxy dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script data-cfasync="false" src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            mocha: {
-              crust: '#11111b',
-              mantle: '#181825',
-              base: '#1e1e2e',
-              surface0: '#313244',
-              surface1: '#45475a',
-              surface2: '#585b70',
-              overlay0: '#6c7086',
-              subtext0: '#a6adc8',
-              text: '#cdd6f4',
-              mauve: '#cba6f7',
-              'mauve-hover': '#b48eed',
-              lavender: '#b4befe',
-              red: '#f38ba8',
-              green: '#a6e3a1',
-            }
-          },
-          boxShadow: {
-            'glow': '0 10px 30px -10px rgba(203, 166, 247, 0.12), 0 20px 40px -15px rgba(0, 0, 0, 0.7)',
-            'tile': '0 4px 20px rgba(0, 0, 0, 0.35)',
+      tailwind.config = {
+          theme: {
+              extend: {
+                  colors: {
+                      mocha: {
+                          crust: '#11111b',
+                          mantle: '#181825',
+                          base: '#1e1e2e',
+                          surface0: '#313244',
+                          surface1: '#45475a',
+                          surface2: '#585b70',
+                          overlay0: '#6c7086',
+                          subtext0: '#a6adc8',
+                          text: '#cdd6f4',
+                          mauve: '#cba6f7',
+                          'mauve-hover': '#b48eed',
+                          lavender: '#b4befe',
+                          red: '#f38ba8',
+                          green: '#a6e3a1',
+                      }
+                  },
+                  boxShadow: {
+                      'glow': '0 10px 30px -10px rgba(203, 166, 247, 0.12), 0 20px 40px -15px rgba(0, 0, 0, 0.7)',
+                      'tile': '0 4px 20px rgba(0, 0, 0, 0.35)',
+                  }
+              }
           }
-        }
       }
-    }
   </script>
   <style>
       @keyframes slideDown {
@@ -97,8 +97,7 @@
       Add / Update
     </button>
     <p class="text-[11px] text-mocha-overlay0 mt-3 text-center">
-      KV limit 25 MiB per image &middot;
-      "Never" converts and compresses in your browser &rarr; WebP, WebM
+      KV limit 25 MiB per image &middot; "Never" stores it once, never refreshes
     </p>
   </form>
 
@@ -127,6 +126,6 @@
   </div>
 </div>
 
-<script src="/dashboard.js"></script>
+<script data-cfasync="false" src="/dashboard.js"></script>
 </body>
 </html>
