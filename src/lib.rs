@@ -263,7 +263,7 @@ async fn dashboard_page(req: Request, ctx: RouteContext<()>) -> Result<Response>
     let message = match query_param(&url, "added") {
         Some(name) => {
             let host = url.host_str().unwrap_or("images.zbee.codes");
-            success_block(&name, &format!("https://{host}/{name}"))
+            success_block_with_url(&name, &format!("https://{host}/{name}"))
         }
         None => String::new(),
     };
@@ -369,7 +369,7 @@ async fn dashboard_add(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
         &req,
         &key,
         &gallery(&ctx).await?,
-        &success_block(&name, &image_url),
+        &success_block_with_url(&name, &image_url),
     )
 }
 
@@ -386,7 +386,7 @@ async fn dashboard_delete(req: Request, ctx: RouteContext<()>) -> Result<Respons
         &req,
         &key,
         &gallery(&ctx).await?,
-        &success_block(&format!("Deleted \"{name}\""), ""),
+        &success_block_simple(&format!("Deleted \"{name}\"")),
     )
 }
 
@@ -541,17 +541,31 @@ fn render_page_or_fragment(req: &Request, key: &str, gallery: &str, message: &st
     }
 }
 
-fn success_block(name: &str, url: &str) -> String {
+fn success_block_simple(message: &str) -> String {
+    format!(
+             r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
+  <div class="bg-emerald-950/30 border border-emerald-900/50 p-3 rounded-md text-center">
+    <p class="text-sm text-emerald-400/90">{message}</p>
+  </div>
+</div>"#,
+             message = message
+    )
+}
+
+fn success_block_with_url(name: &str, url: &str) -> String {
     format!(
         r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
-  <h2 class="text-sm font-semibold text-mocha-green mb-2">{name}</h2>
+  <h2 class="text-sm font-semibold text-emerald-500 mb-2">Added "{name}"</h2>
   <div class="group relative">
-    <div class="absolute -inset-0.5 bg-mocha-green/20 blur opacity-75 group-hover:opacity-100 transition rounded-lg"></div>
-    <div id="result-url" class="relative bg-mocha-crust p-3 pr-24 rounded-lg border border-mocha-surface0 font-mono text-xs break-all text-mocha-text select-all">{url}</div>
-    <button type="button" id="copy-btn" onclick="copyResult()"
-      class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-mocha-green/15 hover:bg-mocha-green/25
-             border border-mocha-green/30 text-mocha-green text-xs font-medium px-3 py-1.5
-             opacity-0 group-hover:opacity-100 transition cursor-pointer">copy</button>
+    <div class="absolute -inset-0.5 bg-emerald-900/30 blur opacity-75 group-hover:opacity-100 transition rounded-lg"></div>
+    <div class="relative flex items-center bg-black p-1 rounded-lg border border-zinc-800">
+      <input type="text" readonly value="{url}" id="result-url"
+        class="flex-grow bg-transparent p-2 font-mono text-xs text-zinc-300 outline-none select-all">
+      <button type="button" id="copy-btn" onclick="copyResult()"
+        class="rounded bg-emerald-950 hover:bg-emerald-900
+               border border-emerald-900/50 text-emerald-400 text-xs px-3 py-1.5 mr-1
+               opacity-0 group-hover:opacity-100 transition">copy</button>
+    </div>
   </div>
 </div>"#,
         name = name,
