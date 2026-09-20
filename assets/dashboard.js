@@ -134,20 +134,62 @@ document.getElementById('confirm-form').addEventListener('submit', async (e) => 
 // variable rather than fetched on every "Never" upload.
 let ffmpeg = null;
 
+// ffmpeg.wasm's load() can hang *forever* if its worker fails to start —
+// a CORS error is the usual culprit — so every await below
+// is timed against this to fail properly.
+const FFMPEG_LOAD_TIMEOUT_MS = 20_000;
+
+// Race against the timeout to fail properly.
+function withTimeout(promise, ms, message) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+    ]);
+}
+
 // Lazily loads and initializes ffmpeg.wasm, caching the instance for reuse.
 async function ensureFfmpeg() {
     if (ffmpeg) return ffmpeg;
-    const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
-        import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js'),
-        import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js'),
-    ]);
-    ffmpeg = new FFmpeg();
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
-    await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    return ffmpeg;
+
+    let instance;
+    try {
+        const [{ FFmpeg }, { toBlobURL }] = await withTimeout(
+            Promise.all([
+                import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js'),
+                import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js'),
+            ]),
+            FFMPEG_LOAD_TIMEOUT_MS,
+            'timed out downloading the converter (CDN unreachable?)'
+        );
+
+        instance = new FFmpeg();
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+
+        const [coreURL, wasmURL, workerURL] = await withTimeout(
+            Promise.all([
+                toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+            ]),
+            FFMPEG_LOAD_TIMEOUT_MS,
+            'timed out downloading the converter core (CDN unreachable?)'
+        );
+
+        await withTimeout(
+            instance.load({ coreURL, wasmURL, workerURL }),
+            FFMPEG_LOAD_TIMEOUT_MS,
+            'timed out starting the converter (cross-origin worker blocked? check the console)'
+        );
+
+        ffmpeg = instance;
+        return ffmpeg;
+    } catch (err) {
+        // A half-loaded instance is poison: drop it so the next attempt
+        // starts fresh instead of returning a broken cached one.
+        ffmpeg = null;
+        throw new Error('converter failed to start: ' +
+            (err && err.message ? err.message : err));
+    }
 }
 
 // Converts an in-memory image/video to WebP/WebM via ffmpeg.wasm; SVGs are
