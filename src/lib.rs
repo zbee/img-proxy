@@ -471,24 +471,24 @@ async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
 fn gallery_tile(name: &str, is_video: bool) -> String {
     let media = if is_video {
         format!(
-            r#"<video src="/{name}" alt="{name}" loading="lazy" muted loop autoplay playsinline preload="metadata" class="w-full h-auto block"></video>"#,
+            r#"<video src="/{name}" alt="{name}" muted loop autoplay playsinline preload="metadata" class="w-full h-auto block"></video>"#,
             name = name
         )
     } else {
         format!(
-            r#"<img src="/{name}" alt="{name}" loading="lazy" class="w-full h-auto block">"#,
+            r#"<img src="/{name}" alt="{name}" class="w-full h-auto block">"#,
             name = name
         )
     };
     format!(
-        r#"<figure class="tile group relative mb-4 break-inside-avoid rounded-lg border border-zinc-800/60 overflow-hidden bg-zinc-950 cursor-pointer" data-name="{name}" style="view-transition-name: tile-{name}" onclick="copyImage(this.dataset.name)">
+        r#"<figure class="tile group relative mb-4 break-inside-avoid rounded-xl border border-mocha-surface0/80 hover:border-mocha-mauve/50 overflow-hidden bg-mocha-mantle shadow-tile hover:shadow-glow transition-all duration-200 cursor-pointer" data-name="{name}" style="view-transition-name: tile-{name}" onclick="copyImage(this.dataset.name)">
   {media}
-  <figcaption class="absolute bottom-2 left-2 text-[10px] text-zinc-400 bg-black/60 px-1.5 py-0.5 rounded">{name}</figcaption>
+  <figcaption class="absolute bottom-2 left-2 text-[10px] text-mocha-text bg-mocha-crust/80 backdrop-blur-sm px-2 py-0.5 rounded-md border border-mocha-surface0/60 opacity-0 group-hover:opacity-100 transition">{name}</figcaption>
   <button type="button" aria-label="Delete {name}" title="Delete {name}" data-name="{name}"
     onclick="event.stopPropagation(); openConfirm(this.dataset.name)"
-    class="absolute bottom-2 right-2 w-7 h-7 flex items-center justify-center rounded
-           bg-red-950/90 hover:bg-red-900 border border-red-900/50 text-red-400
-           text-lg leading-none opacity-0 group-hover:opacity-100 transition">&times;</button>
+    class="absolute bottom-2 right-2 w-7 h-7 flex items-center justify-center rounded-md
+           bg-mocha-crust/80 hover:bg-mocha-red/20 border border-mocha-surface0/60 hover:border-mocha-red/40 text-mocha-subtext0 hover:text-mocha-red
+           text-lg leading-none opacity-0 group-hover:opacity-100 transition cursor-pointer">&times;</button>
 </figure>"#,
         name = name,
         media = media
@@ -514,7 +514,7 @@ fn dashboard_fragment(gallery: &str, message: &str) -> String {
         r#"<div id="dashboard-content">
   {message}
   <section class="mt-12">
-    <h2 class="text-xs uppercase tracking-wide text-zinc-500 mb-4 text-center">Current images</h2>
+    <h2 class="text-xs uppercase font-medium tracking-wider text-mocha-subtext0 mb-4 text-center">Current images</h2>
     <div class="columns-2 md:columns-3 lg:columns-4 gap-4">
       {gallery}
     </div>
@@ -544,14 +544,14 @@ fn render_page_or_fragment(req: &Request, key: &str, gallery: &str, message: &st
 fn success_block(name: &str, url: &str) -> String {
     format!(
         r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
-  <h2 class="text-sm font-semibold text-emerald-500 mb-2">{name}</h2>
+  <h2 class="text-sm font-semibold text-mocha-green mb-2">{name}</h2>
   <div class="group relative">
-    <div class="absolute -inset-0.5 bg-emerald-900/30 blur opacity-75 group-hover:opacity-100 transition rounded"></div>
-    <div id="result-url" class="relative bg-black p-3 pr-24 rounded border border-zinc-800 font-mono text-xs break-all text-zinc-300 select-all">{url}</div>
+    <div class="absolute -inset-0.5 bg-mocha-green/20 blur opacity-75 group-hover:opacity-100 transition rounded-lg"></div>
+    <div id="result-url" class="relative bg-mocha-crust p-3 pr-24 rounded-lg border border-mocha-surface0 font-mono text-xs break-all text-mocha-text select-all">{url}</div>
     <button type="button" id="copy-btn" onclick="copyResult()"
-      class="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-emerald-950 hover:bg-emerald-900
-             border border-emerald-900/50 text-emerald-400 text-xs px-3 py-1.5
-             opacity-0 group-hover:opacity-100 transition">copy</button>
+      class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-mocha-green/15 hover:bg-mocha-green/25
+             border border-mocha-green/30 text-mocha-green text-xs font-medium px-3 py-1.5
+             opacity-0 group-hover:opacity-100 transition cursor-pointer">copy</button>
   </div>
 </div>"#,
         name = name,
@@ -562,9 +562,9 @@ fn success_block(name: &str, url: &str) -> String {
 fn error_block(msg: &str) -> String {
     format!(
         r#"<div class="max-w-2xl mx-auto mt-6 animate-slide-down">
-  <div class="bg-red-950/30 border border-red-900/50 p-4 rounded-md">
-    <h2 class="text-sm font-semibold text-red-500 mb-1">Nope</h2>
-    <p class="text-xs text-red-400/80">{msg}</p>
+  <div class="bg-mocha-red/10 border border-mocha-red/30 p-4 rounded-xl">
+    <h2 class="text-sm font-semibold text-mocha-red mb-1">Nope</h2>
+    <p class="text-xs text-mocha-red/80">{msg}</p>
   </div>
 </div>"#,
         msg = msg

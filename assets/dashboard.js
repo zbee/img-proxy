@@ -51,7 +51,7 @@ function toast(msg) {
     if (!el) {
         el = document.createElement('div');
         el.id = 'toast';
-        el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs px-4 py-2 rounded shadow-lg z-50 transition-opacity duration-200';
+        el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-mocha-mantle border border-mocha-surface0 text-mocha-text text-xs px-4 py-2 rounded-lg shadow-xl shadow-black/50 z-50 transition-opacity duration-200';
         document.body.appendChild(el);
     }
     el.textContent = msg;
@@ -73,7 +73,7 @@ document.addEventListener('keydown', (e) => {
 // Replaces the #dashboard-content element with the markup in `html`,
 // animated via the View Transition API when the browser supports it.
 function swapContent(html) {
-    const doSwap = () => {
+    const doSwap = async () => {
         const current = document.getElementById('dashboard-content');
         // A <template> is used purely as an inert parser: it lets us turn
         // the fragment string into DOM nodes without inserting them into
@@ -82,12 +82,26 @@ function swapContent(html) {
         const template = document.createElement('template');
         template.innerHTML = html.trim();
         const next = template.content.getElementById('dashboard-content');
-        if (current && next) current.replaceWith(next);
+        if (current && next) {
+            current.replaceWith(next);
+            // Ensure any new images in the gallery are decoded before completing
+            // the transition so the browser knows their layout size instead of
+            // capturing a collapsed 0-height sliver snapshot.
+            const imgs = Array.from(next.querySelectorAll('img'));
+            await Promise.all(imgs.map(img => {
+                if (img.complete) return Promise.resolve();
+                if (img.decode) return img.decode().catch(() => {});
+                return new Promise(resolve => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                });
+            }));
+        }
     };
     if (document.startViewTransition) {
-        document.startViewTransition(doSwap);
+        return document.startViewTransition(doSwap);
     } else {
-        doSwap();
+        return doSwap();
     }
 }
 
@@ -96,7 +110,7 @@ function swapContent(html) {
 async function loadContent(url, opts) {
     const res = await fetch(url, Object.assign({ headers: { 'X-Requested-With': 'fetch' } }, opts));
     if (!res.ok) throw new Error('request failed: ' + res.status);
-    swapContent(await res.text());
+    await swapContent(await res.text());
     return res;
 }
 
