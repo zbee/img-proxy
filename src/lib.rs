@@ -93,7 +93,7 @@ async fn load_and_refresh(
     ctx: &RouteContext<()>,
 ) -> Result<Option<(ImageRecord, Vec<u8>, RefreshOutcome)>> {
     let (bytes, rec) = kv.get(name).bytes_with_metadata::<ImageRecord>().await?;
-    let (mut rec, mut bytes) = match (rec, bytes) {
+    let (mut rec, bytes) = match (rec, bytes) {
         (Some(r), Some(b)) => (r, b),
         _ => return Ok(None), // missing, or a legacy JSON-in-value entry
     };
@@ -129,7 +129,8 @@ async fn load_and_refresh(
 }
 
 async fn store_image(kv: &KvStore, name: &str, rec: &ImageRecord, bytes: &[u8]) -> Result<()> {
-    kv.put_bytes(name, bytes)?.metadata(rec)?.execute().await
+    kv.put_bytes(name, bytes)?.metadata(rec)?.execute().await?;
+    Ok(())
 }
 
 async fn refresh_all(req: Request, ctx: RouteContext<()>) -> Result<Response> {
@@ -244,7 +245,7 @@ async fn notify_discord(
         .with_body(Some(serde_json::to_string(&payload)?.into()));
 
     let request = Request::new_with_init(&webhook, &init)?;
-    let mut resp = Fetch::Request(request).send().await?;
+    let resp = Fetch::Request(request).send().await?;
     if resp.status_code() >= 300 {
         console_log!("discord webhook returned {}", resp.status_code());
     }
@@ -459,8 +460,8 @@ async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
     let mut out = String::new();
     for name in names {
         let is_video = matches!(
-            kv.get(&name).metadata::<ImageRecord>().await,
-            Ok(Some(r)) if r.content_type.starts_with("video/")
+            kv.get(&name).bytes_with_metadata::<ImageRecord>().await,
+            Ok((_, Some(r))) if r.content_type.starts_with("video/")
         );
         out.push_str(&gallery_tile(&name, is_video));
     }
