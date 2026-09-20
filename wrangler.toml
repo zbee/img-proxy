@@ -1,15 +1,10 @@
 name = "img-proxy"
-main = "worker.js"
-compatibility_date = "2025-03-03"
-minify = true
+main = "build/index.js"
+compatibility_date = "2026-09-01"
 
-kv_namespaces = [
-  { binding = "IMG_PROXY_CACHE", id = "216d1c12b8964465a7c37ce050c54d54" }
-]
+[build]
+command = "cargo install -q worker-build && worker-build --release --panic-unwind"
 
-[triggers]
-crons = ["0 */3 * * *"]
-
-[observability]
-enabled = true
-head_sampling_rate = 1.00
+[[kv_namespaces]]
+binding = "IMAGES"
+id = "19b92535d5274086a71b4892d2137599"

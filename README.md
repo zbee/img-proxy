@@ -13,22 +13,22 @@ variety of features:
 - Consistent caching
 
 It does this with a pretty simple logic flow.\
-When a request is received, if it matches one of the `destinations`, then that
-saved image will be served.
-If that image is already cached, it will be served from the cache, and
-otherwise it will be served directly (and cached).\
+When a request is received, if it matches a stored image, then that
+saved image will be served from Cloudflare KV.
+If an image is due for a refresh, it attempts to re-fetch from the source,
+falling back to the cached copy if the upstream is unreachable.\
 The great part is that it will essentially always be cached.
 
-The images are routinely fetched every ~3.5 hours and re-cached for 4 hours.\
-Images are then served with a 24 hour client-side cache.
+Images have configurable refresh intervals (defaulting to 4 hours) or can be
+uploaded statically, and are served with up to a 24 hour client-side cache.
 
-The caching itself is done in Cloudflare KV, to avoid as much difficulty as
-possible in getting fresher images.
+All image data and metadata are stored in Cloudflare KV and managed via a
+built-in web dashboard.
 
 ---
 
     zbee/IMG-Proxy: image url shortening, as well as caching and pre-caching.
-    Copyright (C) 2025  Ethan Henderson (zbee) <ethan@zbee.codes>
+    Copyright (C) 2026  Ethan Henderson (zbee) <ethan@zbee.codes>
 
      This program is free software: you can redistribute it and/or modify
      it under the terms of the GNU Affero General Public License as published
