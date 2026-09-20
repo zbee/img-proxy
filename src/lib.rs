@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use worker::*;
 
 const DEFAULT_FREQUENCY_HOURS: u64 = 4;

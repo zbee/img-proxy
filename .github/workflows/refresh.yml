@@ -1,4 +1,4 @@
-﻿name: Refresh cached images
+name: Refresh cached images
 
 on:
   schedule:
