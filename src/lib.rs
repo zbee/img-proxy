@@ -4,6 +4,7 @@ use worker::*;
 const DEFAULT_FREQUENCY_HOURS: u64 = 4;
 const CLIENT_MAX_AGE_SECS: u64 = 86_400;
 const MAX_BODY_BYTES: usize = 25 * 1024 * 1024;
+const FFMPEG_CDN_BASE: &str = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm";
 
 // KV metadata: everything about the image except the bytes. The KV value is
 // the raw image data; the metadata field carries this.
@@ -34,6 +35,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/fetch", fetch_source)
         .post_async("/upload", upload_image)
         .get("/dashboard.js", serve_dashboard_js)
+        .get_async("/ffmpeg/:file", ffmpeg_asset)
         .get_async("/:name", serve_image);
 
     let mut req = req.clone_mut()?;
@@ -54,6 +56,38 @@ fn serve_dashboard_js(_req: Request, _ctx: RouteContext<()>) -> Result<Response>
         .set("Content-Type", "application/javascript; charset=utf-8")?;
     resp.headers_mut()
         .set("Cache-Control", &format!("public, max-age={CLIENT_MAX_AGE_SECS}"))?;
+    Ok(resp)
+}
+
+// Serves ffmpeg.wasm's shell worker + its static imports from our origin so
+// the browser can construct a same-origin module worker. Two path segments,
+// so the "/:name" image catch-all never sees it. No auth: new Worker() can't
+// send our ?key= query anyway, and these are public static assets.
+async fn ffmpeg_asset(_req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let file = ctx.param("file").unwrap().to_string();
+    if !matches!(file.as_str(), "worker.js" | "const.js" | "errors.js") {
+        return Response::error("Not found", 404);
+    }
+    let url = format!("{FFMPEG_CDN_BASE}/{file}");
+
+    let headers = Headers::new();
+    headers.set("User-Agent", "img-proxy-worker")?;
+
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get).with_headers(headers);
+
+    let request = Request::new_with_init(&url, &init)?;
+    let mut upstream = Fetch::Request(request).send().await?;
+    if upstream.status_code() != 200 {
+        return Response::error("Upstream error", 502);
+    }
+    let bytes = upstream.bytes().await?;
+
+    let mut resp = Response::from_bytes(bytes)?;
+    resp.headers_mut()
+        .set("Content-Type", "text/javascript; charset=utf-8")?;
+    resp.headers_mut()
+        .set("Cache-Control", "public, max-age=31536000, immutable")?;
     Ok(resp)
 }
 
@@ -394,25 +428,6 @@ async fn dashboard_delete(req: Request, ctx: RouteContext<()>) -> Result<Respons
     )
 }
 
-// Browser-side conversion endpoints -------------------------------------
-
-async fn fetch_source(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    if !authorized(&req, &ctx)? {
-        return Response::error("Forbidden", 403);
-    }
-    let url = req.url()?;
-    let Some(source) = query_param(&url, "url") else {
-        return Response::error("Missing ?url=", 400);
-    };
-    if !source.starts_with("http://") && !source.starts_with("https://") {
-        return Response::error("url must be http(s)", 400);
-    }
-    let (bytes, content_type) = fetch_upstream(&source).await?;
-    let mut resp = Response::from_bytes(bytes)?;
-    resp.headers_mut().set("Content-Type", &content_type)?;
-    Ok(resp)
-}
-
 async fn upload_image(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     if !authorized(&req, &ctx)? {
         return Response::error("Forbidden", 403);
@@ -448,7 +463,24 @@ async fn upload_image(mut req: Request, ctx: RouteContext<()>) -> Result<Respons
     Response::ok(format!("stored {name}"))
 }
 
-// --- gallery -----------------------------------------------------------
+//region HTML Rendering - Transitional
+
+async fn fetch_source(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    if !authorized(&req, &ctx)? {
+        return Response::error("Forbidden", 403);
+    }
+    let url = req.url()?;
+    let Some(source) = query_param(&url, "url") else {
+        return Response::error("Missing ?url=", 400);
+    };
+    if !source.starts_with("http://") && !source.starts_with("https://") {
+        return Response::error("url must be http(s)", 400);
+    }
+    let (bytes, content_type) = fetch_upstream(&source).await?;
+    let mut resp = Response::from_bytes(bytes)?;
+    resp.headers_mut().set("Content-Type", &content_type)?;
+    Ok(resp)
+}
 
 async fn gallery(ctx: &RouteContext<()>) -> Result<String> {
     let kv = ctx.kv("IMAGES")?;
@@ -501,8 +533,6 @@ fn gallery_tile(name: &str, is_video: bool, ext: &str) -> String {
         media = media
     )
 }
-
-// --- html rendering ------------------------------------------------------
 
 // Every mutating request the dashboard makes (add/update, delete) is issued
 // via fetch() from the page's own script, which tags itself with this
@@ -590,6 +620,8 @@ fn error_block(msg: &str) -> String {
         msg = msg
     )
 }
+
+//endregion
 
 //region Utilities
 fn authorized(req: &Request, ctx: &RouteContext<()>) -> Result<bool> {

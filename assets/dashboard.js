@@ -180,20 +180,24 @@ async function ensureFfmpeg() {
         instance = new FFmpeg();
         const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
 
-        const [coreURL, wasmURL, workerURL] = await withTimeout(
+        const [coreURL, wasmURL] = await withTimeout(
             Promise.all([
                 toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
             ]),
             FFMPEG_LOAD_TIMEOUT_MS,
             'timed out downloading the converter core (CDN unreachable?)'
         );
 
+
         await withTimeout(
-            instance.load({ coreURL, wasmURL, workerURL }),
+            instance.load({
+                coreURL,
+                wasmURL,
+                classWorkerURL: window.location.origin + '/ffmpeg/worker.js', // definitely a real file
+            }),
             FFMPEG_LOAD_TIMEOUT_MS,
-            'timed out starting the converter (cross-origin worker blocked? check the console)'
+            'timed out starting the converter (same-origin worker failed? check the console)'
         );
 
         ffmpeg = instance;
