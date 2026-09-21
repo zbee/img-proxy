@@ -82,13 +82,17 @@ async fn refresh_all(req: Request, ctx: RouteContext<()>) -> Result<Response> {
         .collect();
     names.sort();
 
-    let (mut refreshed, mut skipped, mut failed) = (0usize, 0usize, 0usize);
+    let (mut refreshed, mut skipped_fresh, mut skipped_permanent, mut failed) =
+        (0usize, 0usize, 0usize, 0usize);
     for name in names {
         match image_storage::load_and_refresh(&name, &kv, &host, &ctx).await {
             Ok(Some((_, _, image_storage::RefreshOutcome::Refreshed))) => refreshed += 1,
-            Ok(Some((_, _, image_storage::RefreshOutcome::SkippedFresh))) => skipped += 1,
+            Ok(Some((_, _, image_storage::RefreshOutcome::SkippedPermanent))) => {
+                skipped_permanent += 1
+            }
+            Ok(Some((_, _, image_storage::RefreshOutcome::SkippedFresh))) => skipped_fresh += 1,
             Ok(Some((_, _, image_storage::RefreshOutcome::ServedStale))) => failed += 1,
-            Ok(None) => skipped += 1,
+            Ok(None) => skipped_fresh += 1,
             Err(e) => {
                 failed += 1;
                 console_log!("refresh error for {name}: {e}");
@@ -98,7 +102,8 @@ async fn refresh_all(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 
     Response::from_json(&json!({
         "refreshed": refreshed,
-        "skipped_fresh": skipped,
+        "skipped_fresh": skipped_fresh,
+        "skipped_permanent": skipped_permanent,
         "failed": failed,
     }))
 }

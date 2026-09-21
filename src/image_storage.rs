@@ -6,6 +6,8 @@ use crate::{utility, ImageRecord};
 pub(crate) enum RefreshOutcome {
     /// The image was fetched and written back to KV.
     Refreshed,
+    /// The image was configured to never be refreshed.
+    SkippedPermanent,
     /// The stored image was still within its refresh interval.
     SkippedFresh,
     /// The upstream failed, so the previous bytes were served.
@@ -27,7 +29,7 @@ pub(crate) async fn load_and_refresh(
 
     let now = Date::now().as_millis();
     if rec.frequency_hours == 0 {
-        return Ok(Some((rec, bytes, RefreshOutcome::SkippedFresh)));
+        return Ok(Some((rec, bytes, RefreshOutcome::SkippedPermanent)));
     }
     let age_hours = now.saturating_sub(rec.last_success_ms) / 3_600_000;
     if age_hours < rec.frequency_hours {
