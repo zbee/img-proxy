@@ -1,8 +1,7 @@
 // img-proxy dashboard client script.
 // Handles the add/update and delete forms, the copy-to-clipboard buttons, and
 // toast notifications. Every mutating action talks to the worker through
-// fetch() and swaps in the returned #dashboard-content fragment, wrapping the
-// swap in a View Transition when the browser supports one.
+// fetch() and swaps in the returned #dashboard-content fragment.
 
 // The dashboard key is embedded in the page by the server and reused for
 // every fetch() call the script makes (delete, reload).
@@ -44,7 +43,7 @@ function copyResult() {
 }
 
 // Shows a transient bottom-of-screen message, creating the toast element on
-// first use and reusing it afterward.
+// first use and reusing it afterwards.
 function toast(msg) {
     let el = document.getElementById('toast');
     if (!el) {
@@ -80,28 +79,22 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('#copy-btn') || e.target.closest('#result-url')) copyResult();
 });
 
-// Focusing on the result URL (click or keyboard) selects its text, so it's
+// Focusing the result URL (click or keyboard) selects its text so it's
 // immediately copyable the old-fashioned way too.
 document.addEventListener('focusin', (e) => {
     if (e.target.id === 'result-url') e.target.select();
 });
 
-// Replaces #dashboard-content with the returned fragment. The swap runs
-// synchronously, so the View Transition snapshots a settled DOM; awaiting
-// img.decode() inside the transition callback is what hung the overlay open
-// and swallowed pointer events.
+// Replaces #dashboard-content with the returned fragment. The View Transition
+// API was causing the UI to hang and images to render incorrectly, so this is
+// now a plain, synchronous DOM replacement.
 function swapContent(html) {
     const current = document.getElementById('dashboard-content');
     const template = document.createElement('template');
     template.innerHTML = html.trim();
     const next = template.content.getElementById('dashboard-content');
-    if (!current || !next) return;
-
-    const swap = () => current.replaceWith(next);
-    if (document.startViewTransition) {
-        document.startViewTransition(swap);
-    } else {
-        swap();
+    if (current && next) {
+        current.replaceWith(next);
     }
 }
 
@@ -128,7 +121,7 @@ document.getElementById('confirm-form').addEventListener('submit', async (e) => 
     }
 });
 
-// Toggles the 'submit' button's disabled state and swaps its label while a
+// Toggles the submit button's disabled state and swaps its label while a
 // save is in flight.
 function setBusy(btn, busy, label) {
     if (!btn) return;
@@ -137,7 +130,8 @@ function setBusy(btn, busy, label) {
     else btn.textContent = btn.dataset.label || 'Add / Update';
 }
 
-// Handles the add/update form. Fetches the source, stores the
+// Handles the add/update form. Every schedule — including "Never" (upload
+// once) — is just a POST to the worker: it fetches the source, stores the
 // bytes, and hands back a fragment with the new tile already in the gallery.
 document.getElementById('add-form').addEventListener('submit', async (e) => {
     e.preventDefault();
